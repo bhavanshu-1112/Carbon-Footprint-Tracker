@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -11,7 +13,17 @@ from backend.schemas import CalculationRequest, CalculationResponse
 from backend.calculator import calculate_footprint
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "database.json"
+SEED_DB_PATH = BASE_DIR / "database.json"
+
+if os.environ.get("VERCEL"):
+    DB_PATH = Path("/tmp/database.json")
+    if not DB_PATH.exists() and SEED_DB_PATH.exists():
+        try:
+            shutil.copy(SEED_DB_PATH, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_PATH = SEED_DB_PATH
 
 db_lock = asyncio.Lock()
 
