@@ -1,0 +1,74 @@
+{
+  "emission_factors": {
+    "transport": {
+      "driving_gasoline": 0.17,
+      "driving_diesel": 0.171,
+      "driving_electric": 0.05,
+      "motorcycle": 0.1,
+      "public_transit_bus": 0.089,
+      "public_transit_train": 0.035,
+      "flight_short_haul": 0.25,
+      "flight_long_haul": 0.19,
+      "walking_biking": 0.0
+    },
+    "diet": {
+      "meat_heavy": 7.2,
+      "average_meat": 5.6,
+      "no_beef": 4.6,
+      "vegetarian": 3.8,
+      "vegan": 2.9
+    },
+    "energy": {
+      "electricity_grid": 0.4,
+      "electricity_green": 0.0,
+      "natural_gas_kwh": 0.18
+    },
+    "waste": {
+      "unsorted_waste_kg": 0.5,
+      "recycled_waste_kg": 0.1
+    }
+  },
+  "logs": [
+    {
+      "id": "7e807607-4ac1-4104-ae1d-b58a79add888",
+      "timestamp": "2026-06-10T18:01:32.462351Z",
+      "inputs": {
+        "transport": {
+          "transport_type": "driving_electric",
+          "distance_km": 15.0
+        },
+        "diet": {
+          "diet_type": "vegan",
+          "days": 5
+        },
+        "energy": {
+          "electricity_kwh": 26.0,
+          "electricity_type": "electricity_grid",
+          "gas_kwh": 3.0
+        },
+        "waste": {
+          "unsorted_waste_kg": 12.0,
+          "recycled_waste_kg": 5.0
+        }
+      },
+      "breakdown": {
+        "transport": 0.75,
+        "diet": 14.5,
+        "energy": 10.94,
+        "waste": 6.5
+      },
+      "total_co2_kg": 32.69,
+      "savings": {
+        "diet_saving_kg": 21.5,
+        "transport_saving_kg": 1.8
+      },
+      "recommendations": [
+        "Contact your energy provider to switch to a 100% green/renewable energy tariff, which reduces electricity emissions to 0 kg CO2/kWh.",
+        "Investigate home electrification (heat pumps, induction stoves) to replace natural gas consumption.",
+        "Improve waste sorting. Recycled waste has a significantly lower carbon footprint (~0.1 kg CO2/kg) compared to landfilled waste (~0.5 kg CO2/kg)."
+      ],
+      "eco_score": 61,
+      "micro_insight": "Your diet is so carbon-heavy that the cows are thanking you for their short lives. Try swapping that beef for a plant-based meal, unless you're trying to set a new greenhouse gas record."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+# Python cache and byte-code
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.cache
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+bin/
+include/
+lib/
+share/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini

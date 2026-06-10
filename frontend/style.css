@@ -1,0 +1,74 @@
+/* Custom scrollbars for premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #020617; /* slate-950 */
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b; /* slate-800 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981; /* emerald-500 */
+}
+
+/* Base styles and transitions */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Glassmorphism details */
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Focus Indicator Enhancements (WCAG 2.1 AA) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #10b981 !important; /* emerald-500 */
+  outline-offset: 2px !important;
+}
+
+/* High Contrast mode classes */
+.high-contrast {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+.high-contrast select,
+.high-contrast input {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+}
+.high-contrast button {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+.high-contrast .bg-slate-900\/60,
+.high-contrast .bg-slate-950\/80,
+.high-contrast .bg-slate-950 {
+  background-color: #000000 !important;
+  border-color: #ffffff !important;
+}
+.high-contrast .text-slate-400,
+.high-contrast .text-slate-300,
+.high-contrast .text-emerald-400,
+.high-contrast .text-teal-400 {
+  color: #ffffff !important;
+}
+.high-contrast .border-slate-800,
+.high-contrast .border-slate-700\/50,
+.high-contrast .border-slate-850 {
+  border-color: #ffffff !important;
+}
+
+/* Chart glow effects */
+canvas {
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.15));
+}
