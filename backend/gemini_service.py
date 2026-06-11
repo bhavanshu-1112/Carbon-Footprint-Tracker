@@ -5,6 +5,24 @@ import httpx
 
 logger = logging.getLogger("backend.gemini_service")
 
+_async_client = None
+
+def get_async_client() -> httpx.AsyncClient:
+    global _async_client
+    if _async_client is None:
+        _async_client = httpx.AsyncClient(
+            timeout=6.0,
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=10)
+        )
+    return _async_client
+
+async def close_async_client():
+    global _async_client
+    if _async_client is not None:
+        await _async_client.aclose()
+        _async_client = None
+
+
 # Curated local fallbacks for witty environmental tips
 LOCAL_WITTY_FALLBACKS = {
     "transport": [
@@ -61,14 +79,14 @@ async def generate_witty_tip(category: str, category_co2: float, total_co2: floa
     }
 
     try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
-            response = await client.post(url, json=payload)
-            if response.status_code == 200:
-                res_data = response.json()
-                text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                if text:
-                    return text
-            logger.warning(f"Gemini API returned status code {response.status_code}. Falling back to local tips.")
+        client = get_async_client()
+        response = await client.post(url, json=payload)
+        if response.status_code == 200:
+            res_data = response.json()
+            text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            if text:
+                return text
+        logger.warning(f"Gemini API returned status code {response.status_code}. Falling back to local tips.")
     except Exception as e:
         logger.error(f"Error calling Gemini API: {str(e)}. Falling back to local tips.")
 

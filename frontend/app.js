@@ -21,12 +21,99 @@ const savingsDiet = document.getElementById("savings-diet");
 const savingsTransport = document.getElementById("savings-transport");
 
 // Accessibility helpers
+// Accessibility helpers
 function announceToScreenReader(message) {
   toastAnnouncement.textContent = message;
   // Clear after a delay to allow repeat announcements
   setTimeout(() => {
     toastAnnouncement.textContent = "";
   }, 10000);
+}
+
+// --- Premium Modal System ---
+let modalCallback = null;
+const customModal = document.getElementById("custom-modal");
+const modalCancelBtn = document.getElementById("modal-cancel-btn");
+const modalConfirmBtn = document.getElementById("modal-confirm-btn");
+const modalBox = document.getElementById("modal-box");
+
+function showConfirmModal(title, message, onConfirm) {
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-desc").textContent = message;
+  modalCallback = onConfirm;
+  
+  customModal.classList.remove("hidden");
+  // Force a small reflow to trigger CSS scale transition
+  void customModal.offsetWidth;
+  customModal.classList.add("modal-visible");
+}
+
+function hideConfirmModal() {
+  customModal.classList.remove("modal-visible");
+  setTimeout(() => {
+    customModal.classList.add("hidden");
+    modalCallback = null;
+  }, 300);
+}
+
+modalCancelBtn.addEventListener("click", () => {
+  hideConfirmModal();
+});
+
+modalConfirmBtn.addEventListener("click", () => {
+  if (modalCallback) modalCallback();
+  hideConfirmModal();
+});
+
+customModal.addEventListener("click", (e) => {
+  if (e.target === customModal) {
+    hideConfirmModal();
+  }
+});
+
+// --- Premium Toast System ---
+const toastContainer = document.getElementById("toast-container");
+
+function showToast(message, type = "info") {
+  const toast = document.createElement("div");
+  toast.className = `toast-item pointer-events-auto flex items-center justify-between p-4 rounded-xl border glass-panel w-80 text-sm font-medium text-slate-100 ${
+    type === "success" ? "toast-success" : type === "error" ? "toast-error" : "toast-info"
+  }`;
+  
+  const icon = type === "success" 
+    ? `<svg class="w-5 h-5 text-emerald-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+    : type === "error"
+    ? `<svg class="w-5 h-5 text-rose-500 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+    : `<svg class="w-5 h-5 text-cyan-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+
+  toast.innerHTML = `
+    <div class="flex items-center">
+      ${icon}
+      <span>${message}</span>
+    </div>
+    <button class="ml-4 text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 rounded p-0.5" aria-label="Close notification">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  `;
+  
+  toast.querySelector("button").addEventListener("click", () => {
+    toast.classList.remove("toast-show");
+    setTimeout(() => toast.remove(), 300);
+  });
+  
+  toastContainer.appendChild(toast);
+  
+  void toast.offsetWidth;
+  toast.classList.add("toast-show");
+  
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.remove("toast-show");
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 5000);
+
+  announceToScreenReader(message);
 }
 
 // Format date nicely
@@ -126,36 +213,47 @@ function renderHistory(logs) {
 
 // Delete single log entry
 async function deleteLog(id) {
-  try {
-    const response = await fetch(`${API_BASE}/history/${id}`, {
-      method: "DELETE"
-    });
-    if (!response.ok) throw new Error("Failed to delete log entry.");
-    
-    announceToScreenReader("Log entry deleted successfully.");
-    fetchHistory();
-  } catch (error) {
-    console.error(error);
-    alert("Could not delete log entry. Is the backend running?");
-  }
+  showConfirmModal(
+    "Delete Log Entry",
+    "Are you sure you want to delete this carbon footprint calculation record?",
+    async () => {
+      try {
+        const response = await fetch(`${API_BASE}/history/${id}`, {
+          method: "DELETE"
+        });
+        if (!response.ok) throw new Error("Failed to delete log entry.");
+        
+        showToast("Log entry deleted successfully.", "success");
+        fetchHistory();
+      } catch (error) {
+        console.error(error);
+        showToast("Could not delete log entry. Is the backend running?", "error");
+      }
+    }
+  );
 }
 
 // Clear all history
-clearHistoryBtn.addEventListener("click", async () => {
-  if (!confirm("Are you sure you want to clear all history logs?")) return;
-  try {
-    const response = await fetch(`${API_BASE}/history`, {
-      method: "DELETE"
-    });
-    if (!response.ok) throw new Error("Failed to clear history.");
-    
-    announceToScreenReader("All logs cleared successfully.");
-    fetchHistory();
-    resetDashboard();
-  } catch (error) {
-    console.error(error);
-    alert("Could not clear history. Is the backend running?");
-  }
+clearHistoryBtn.addEventListener("click", () => {
+  showConfirmModal(
+    "Clear Calculation History",
+    "Are you sure you want to clear all history logs? This action is permanent.",
+    async () => {
+      try {
+        const response = await fetch(`${API_BASE}/history`, {
+          method: "DELETE"
+        });
+        if (!response.ok) throw new Error("Failed to clear history.");
+        
+        showToast("All logs cleared successfully.", "success");
+        fetchHistory();
+        resetDashboard();
+      } catch (error) {
+        console.error(error);
+        showToast("Could not clear history. Is the backend running?", "error");
+      }
+    }
+  );
 });
 
 // Reset Dashboard UI
@@ -339,16 +437,16 @@ trackerForm.addEventListener("submit", async (e) => {
       <span>Diet ${isDietSaved ? "Saved" : "Potential Savings"}:</span>
       <span class="font-bold">${isDietSaved ? "+" : "-"}${data.savings.diet_saving_kg.toFixed(1)} kg</span>
     `;
-    savingsDiet.className = `flex justify-between items-center ${isDietSaved ? "text-emerald-400" : "text-slate-400"}`;
+    savingsDiet.className = `flex justify-between items-center ${isDietSaved ? "text-emerald-400" : "text-slate-300"}`;
 
     // Determine labels for transport savings
     const transportType = payload.transport.transport_type;
-    const isTransitSaved = !["driving_gasoline", "driving_diesel", "motorcycle"].includes(transportType);
+    const isTransitSaved = ["driving_electric", "public_transit_bus", "public_transit_train", "walking_biking"].includes(transportType);
     savingsTransport.innerHTML = `
       <span>Transit ${isTransitSaved ? "Saved" : "Potential Savings"}:</span>
       <span class="font-bold">${isTransitSaved ? "+" : "-"}${data.savings.transport_saving_kg.toFixed(1)} kg</span>
     `;
-    savingsTransport.className = `flex justify-between items-center ${isTransitSaved ? "text-emerald-400" : "text-slate-400"}`;
+    savingsTransport.className = `flex justify-between items-center ${isTransitSaved ? "text-emerald-400" : "text-slate-300"}`;
 
     // Render recommendations list
     recommendationsList.innerHTML = data.recommendations
@@ -370,14 +468,12 @@ trackerForm.addEventListener("submit", async (e) => {
     // Refresh history grid
     await fetchHistory();
 
-    // Trigger accessibility statement
-    announceToScreenReader(
-      `Footprint calculated: ${score.toFixed(1)} kilograms of CO2 equivalent. Breakdown chart updated. ${data.recommendations.length} recommendations generated.`
-    );
+    // Trigger success notification
+    showToast("Carbon footprint calculated successfully!", "success");
 
   } catch (error) {
     console.error(error);
-    alert(error.message || "Error submitting calculation payload.");
+    showToast(error.message || "Error submitting calculation payload.", "error");
   }
 });
 

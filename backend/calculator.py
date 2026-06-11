@@ -50,11 +50,11 @@ async def calculate_footprint(
         # Show how much they could save by shifting to a vegan diet
         diet_saving = (d_factor - vegan_factor) * d_input.days
 
-    # Transport saving: Compare current mode to train/bus if driving, or show savings compared to gasoline car.
+    # Transport saving: Compare current mode to train/bus if driving/flying, or show savings compared to gasoline car.
     driving_gas_factor = transport_factors["driving_gasoline"]
     train_factor = transport_factors["public_transit_train"]
     
-    if t_input.transport_type in ["driving_gasoline", "driving_diesel", "motorcycle"]:
+    if t_input.transport_type in ["driving_gasoline", "driving_diesel", "motorcycle", "flight_short_haul", "flight_long_haul"]:
         # Show potential savings if they switched to public transit train
         transport_saving = (t_factor - train_factor) * t_input.distance_km
     else:

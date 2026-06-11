@@ -2,6 +2,13 @@ import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
+@pytest.fixture(autouse=True)
+def mock_gemini_tip():
+    with patch("backend.calculator.generate_witty_tip") as mock:
+        mock.return_value = "Mocked witty environmental tip: save energy and ride bikes!"
+        yield mock
+
+
 @pytest.fixture
 def mock_db(tmp_path):
     test_db = tmp_path / "database.json"
@@ -39,7 +46,10 @@ def mock_db(tmp_path):
     }""", encoding="utf-8")
     
     with patch("backend.main.DB_PATH", test_db):
+        import backend.main
+        backend.main.db_cache = None
         yield test_db
+        backend.main.db_cache = None
 
 @pytest.fixture
 def client(mock_db):
