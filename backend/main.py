@@ -1,18 +1,28 @@
+"""FastAPI application entry point for the Carbon Footprint Awareness Platform.
+
+Configures middleware (CORS, security headers), manages the JSON-file
+database lifecycle, and exposes REST endpoints for calculating, logging,
+and managing carbon footprint records.
+"""
+
 import asyncio
 import json
+import logging
 import os
 import shutil
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 
-from fastapi import FastAPI, HTTPException, status, Response
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.schemas import CalculationRequest, CalculationResponse
 from backend.calculator import calculate_footprint
 from backend.gemini_service import close_async_client
+from backend.schemas import CalculationRequest, CalculationResponse
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SEED_DB_PATH = BASE_DIR / "database.json"
@@ -22,25 +32,48 @@ if os.environ.get("VERCEL"):
     if not DB_PATH.exists() and SEED_DB_PATH.exists():
         try:
             shutil.copy(SEED_DB_PATH, DB_PATH)
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.warning("Failed to seed database to /tmp: %s", exc)
 else:
     DB_PATH = SEED_DB_PATH
 
-db_cache = None
+db_cache: dict | None = None
 db_lock = asyncio.Lock()
 
+
 def _read_db_file() -> dict:
+    """Read and parse the JSON database from disk.
+
+    Returns:
+        Parsed database dictionary with ``emission_factors`` and ``logs`` keys.
+        Returns a safe default if the file does not exist.
+    """
     if not DB_PATH.exists():
         return {"emission_factors": {}, "logs": []}
     with open(DB_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def _write_db_file_str(json_str: str):
+
+def _write_db_file_str(json_str: str) -> None:
+    """Write a pre-serialized JSON string to the database file.
+
+    Args:
+        json_str: The JSON-encoded database content to persist.
+    """
     with open(DB_PATH, "w", encoding="utf-8") as f:
         f.write(json_str)
 
+
 async def load_db() -> dict:
+    """Load the database with double-checked locking for async safety.
+
+    Uses an in-memory cache to avoid redundant disk reads.  The cache is
+    populated on first access and protected by an async lock to prevent
+    race conditions during concurrent startup requests.
+
+    Returns:
+        The current database dictionary.
+    """
     global db_cache
     if db_cache is not None:
         return db_cache
@@ -50,7 +83,13 @@ async def load_db() -> dict:
         db_cache = await asyncio.to_thread(_read_db_file)
         return db_cache
 
-async def save_db(data: dict):
+
+async def save_db(data: dict) -> None:
+    """Persist the database dictionary to disk and update the cache.
+
+    Args:
+        data: The full database dictionary to serialize and write.
+    """
     global db_cache
     async with db_lock:
         db_cache = data
@@ -60,7 +99,7 @@ async def save_db(data: dict):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Preload database cache on startup
+    """Application lifespan manager — preloads DB and cleans up connections."""
     await load_db()
     yield
     # Clean up HTTPX async client connection pool on shutdown
@@ -72,12 +111,14 @@ app = FastAPI(
     title="Carbon Footprint Awareness Platform API",
     description="A secure and high-efficiency API to calculate, track, and offset carbon emissions.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-# Custom Security Headers Middleware (Performance and memory-efficient standard middleware)
+
+# Custom Security Headers Middleware
 @app.middleware("http")
-async def add_security_headers(request, call_next):
+async def add_security_headers(request: Request, call_next):
+    """Inject hardened security headers into every HTTP response."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -92,11 +133,15 @@ async def add_security_headers(request, call_next):
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Permissions-Policy"] = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+    response.headers["Permissions-Policy"] = (
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+        "magnetometer=(), microphone=(), payment=(), usb=()"
+    )
     return response
 
-# Hardened CORS configuration (Predefined origins list + optional env variable extension)
-allowed_origins = [
+
+# Hardened CORS configuration
+allowed_origins: list[str] = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:5500",
@@ -106,7 +151,9 @@ allowed_origins = [
 ]
 allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
 if allowed_origins_env:
-    allowed_origins.extend([org.strip() for org in allowed_origins_env.split(",") if org.strip()])
+    allowed_origins.extend(
+        [org.strip() for org in allowed_origins_env.split(",") if org.strip()]
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -118,25 +165,25 @@ app.add_middleware(
 
 
 @app.get("/api/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Simple health check endpoint."""
     return {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
 
 @app.get("/api/constants")
-async def get_constants():
+async def get_constants() -> dict:
     """Retrieve all current emission factors from the database."""
     db = await load_db()
     return db.get("emission_factors", {})
 
 
 @app.post("/api/calculate", response_model=CalculationResponse, status_code=status.HTTP_201_CREATED)
-async def calculate_and_log(payload: CalculationRequest):
-    """
-    Calculate carbon footprint, compare offsets, and save the transaction log.
+async def calculate_and_log(payload: CalculationRequest) -> CalculationResponse:
+    """Calculate carbon footprint, compare offsets, and save the transaction log.
+
     Utilizes Pydantic for validation and processes inputs asynchronously.
     """
     db = await load_db()
@@ -144,7 +191,7 @@ async def calculate_and_log(payload: CalculationRequest):
     if not factors:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Emission factors are missing in the database constants."
+            detail="Emission factors are missing in the database constants.",
         )
 
     # Perform calculation (async helper)
@@ -158,34 +205,34 @@ async def calculate_and_log(payload: CalculationRequest):
 
 
 @app.get("/api/history", response_model=List[CalculationResponse])
-async def get_history():
+async def get_history() -> list:
     """Retrieve all calculations saved in history."""
     db = await load_db()
     return db.get("logs", [])
 
 
 @app.delete("/api/history/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_log_entry(log_id: str):
+async def delete_log_entry(log_id: str) -> Response:
     """Delete a specific log entry from calculation history."""
     db = await load_db()
     logs = db.get("logs", [])
-    
+
     # Filter out target log
     updated_logs = [log for log in logs if log.get("id") != log_id]
-    
+
     if len(updated_logs) == len(logs):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Calculation with id {log_id} not found in history."
+            detail=f"Calculation with id {log_id} not found in history.",
         )
-        
+
     db["logs"] = updated_logs
     await save_db(db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.delete("/api/history", status_code=status.HTTP_204_NO_CONTENT)
-async def clear_all_history():
+async def clear_all_history() -> Response:
     """Clear all records from history."""
     db = await load_db()
     db["logs"] = []
